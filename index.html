@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QUOLIS PROGRAM | PISRA Security Research Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Share+Tech+Mono&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #000000;
+            --bg-surface: #070709;
+            --bg-elevated: #0e0e12;
+            --border-dim: #26262e;
+            --border-mid: #4e4e5a;
+            --border-bright: #ffffff;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0ac;
+            --text-muted: #585864;
+
+            /* Rank Theme Colors (D -> S) */
+            --rank-d: #4caf50; /* Green */
+            --rank-c: #ffee58; /* Yellow */
+            --rank-b: #ffa726; /* Orange */
+            --rank-a: #ef5350; /* Red */
+            --rank-s: #26c6da; /* Cyan */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #020203;
+            color: var(--text-primary);
+            font-family: 'Chakra Petch', 'Noto Sans JP', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .mono {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        /* Android Portrait Viewport Frame */
+        .terminal-shell {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            height: 100dvh;
+            background-color: var(--bg-void);
+            border-left: 1px solid var(--border-dim);
+            border-right: 1px solid var(--border-dim);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(255, 255, 255, 0.05);
+        }
+
+        /* Subtle Tactical Scanlines */
+        .terminal-shell::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(255, 255, 255, 0.015) 0px,
+                rgba(255, 255, 255, 0.015) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+            pointer-events: none;
+            z-index: 900;
+        }
+
+        /* Corner Bracket HUD Frame */
+        .hud-frame {
+            position: relative;
+            border: 1px solid var(--border-dim);
+            background: var(--bg-surface);
+        }
+        .hud-frame::before,
+        .hud-frame::after {
+            content: "";
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-color: var(--border-bright);
+            border-style: solid;
+            pointer-events: none;
+        }
+        .hud-frame::before {
+            top: -1px;
+            left: -1px;
+            border-width: 1px 0 0 1px;
+        }
+        .hud-frame::after {
+            bottom: -1px;
+            right: -1px;
+            border-width: 0 1px 1px 0;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        /* =========================================================
+           1. AUTHENTICATION & INITIAL SETUP SCREEN
+        ========================================================= */
+        #auth-screen {
+            justify-content: space-between;
+            padding: 18px 16px 22px 16px;
+            background: radial-gradient(circle at 50% 22%, #0c0d11 0%, #000000 76%);
+        }
+
+        .auth-top-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-dim);
+            padding-bottom: 6px;
+        }
+
+        .auth-title-block {
+            text-align: center;
+            padding: 12px 10px;
+            border-top: 1px solid var(--border-bright);
+            border-bottom: 1px solid var(--border-bright);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.035), transparent);
+            margin-top: 8px;
+        }
+
+        .auth-agency-mini {
+            font-size: 0.56rem;
+            color: var(--text-muted);
+            letter-spacing: 1.5px;
+            margin-bottom: 3px;
+        }
+
+        .auth-project {
+            font-size: 0.72rem;
+            letter-spacing: 3px;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+        }
+
+        .auth-program {
+            font-size: 1.7rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            line-height: 1.1;
+            text-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
+        }
+
+        .auth-clearance-tag {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 10px;
+            border: 1px solid var(--border-bright);
+            background: #ffffff;
+            color: #000000;
+            font-size: 0.64rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .auth-clearance-tag.setup-mode {
+            background: #000000;
+            color: var(--rank-s);
+            border-color: var(--rank-s);
+        }
+
+        /* 12-Digit Passcode Slots (_ _ _ _ - _ _ _ _ - _ _ _ _) */
+        .passcode-box {
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        .passcode-prompt {
+            font-size: 0.68rem;
+            color: var(--text-primary);
+            letter-spacing: 1.5px;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .passcode-subprompt {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            min-height: 14px;
+        }
+
+        .slots-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 10px 6px;
+            border: 1px solid var(--border-dim);
+            background: #040406;
+        }
+
+        .slot-group {
+            display: flex;
+            gap: 3px;
+        }
+
+        .slot-dash {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            padding: 0 1px;
+        }
+
+        .code-slot {
+            width: 21px;
+            height: 32px;
+            border: 1px solid var(--border-dim);
+            background: #0a0a0d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            transition: all 0.1s ease;
+        }
+
+        .code-slot.filled {
+            border-color: var(--border-bright);
+            background: #16161c;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
+        }
+
+        .code-slot.cursor {
+            border-color: var(--text-secondary);
+            animation: blinkCursor 1s infinite;
+        }
+
+        @keyframes blinkCursor {
+            0%, 100% { border-color: #ffffff; }
+            50% { border-color: #33333d; }
+        }
+
+        .digit-counter {
+            margin-top: 6px;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            letter-spacing: 1.5px;
+        }
+
+        /* Keypad */
+        .keypad-area {
+            width: 100%;
+            max-width: 340px;
+            margin: 0 auto;
+        }
+
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .pad-btn {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-mid);
+            color: var(--text-primary);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.45rem;
+            padding: 11px 0;
+            cursor: pointer;
+            transition: background 0.08s, transform 0.05s;
+        }
+
+        .pad-btn:active {
+            background: #ffffff;
+            color: #000000;
+            transform: scale(0.97);
+        }
+
+        .pad-btn.fn-btn {
+            font-size: 0.78rem;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            border-color: var(--border-dim);
+        }
+
+        .submit-login-btn {
+            width: 100%;
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            padding: 13px 0;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .submit-login-btn:active {
+            opacity: 0.8;
+        }
+
+        /* Credential Approved Transition Overlay */
+        #credential-overlay {
+            position: absolute;
+            inset: 0;
+            background: #000000;
+            z-index: 500;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .credential-box {
+            width: 100%;
+            max-width: 340px;
+            border: 1px solid #ffffff;
+            padding: 28px 20px;
+            background: #060608;
+        }
+
+        .credential-status {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-bottom: 14px;
+        }
+
+        .loader-bar-outer {
+            width: 100%;
+            height: 6px;
+            border: 1px solid #ffffff;
+            padding: 1px;
+            margin-bottom: 10px;
+        }
+
+        .loader-bar-inner {
+            height: 100%;
+            width: 0%;
+            background: #ffffff;
+            transition: width 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .loading-subtext {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+        }
+
+        /* =========================================================
+           2. MAIN DASHBOARD HEADER & USER DOSSIER
+        ========================================================= */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 14px;
+            border-bottom: 1px solid var(--border-bright);
+            background: #050507;
+        }
+
+        .header-brand {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 2.5px;
+            line-height: 1.1;
+        }
+
+        .header-sub {
+            font-size: 0.58rem;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: transparent;
+            border: 1px solid var(--border-mid);
+            color: var(--text-primary);
+            padding: 6px 9px;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        /* User Clearance Dossier Strip */
+        .dossier-strip {
+            padding: 8px 14px;
+            background: #09090c;
+            border-bottom: 1px solid var(--border-dim);
+            font-size: 0.65rem;
+        }
+
+        .dossier-agency-row {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+            font-size: 0.56rem;
+            letter-spacing: 0.4px;
+            padding-bottom: 4px;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed var(--border-dim);
+        }
+
+        .dossier-agent-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .agent-identity {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .agent-avatar-box {
+            width: 26px;
+            height: 26px;
+            border: 1px solid var(--border-mid);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000000;
+            color: #ffffff;
+        }
+
+        .agent-meta-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .agent-name-txt {
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 1px;
+            color: #ffffff;
+            line-height: 1.1;
+        }
+
+        .agent-affil-txt {
+            color: var(--text-secondary);
+            font-size: 0.64rem;
+        }
+
+        .agent-serial-col {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .agent-code-tag {
+            font-size: 0.58rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-dim);
+            padding: 1px 5px;
+        }
+
+        .clearance-lvl-mini {
+            font-size: 0.54rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        /* Scrollable Viewport */
+        .content-viewport {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 14px;
+        }
+
+        .tab-view {
+            display: none;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        .tab-view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0.4; transform: translateY(3px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-bright);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .section-bar-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .section-bar-meta {
+            font-size: 0.64rem;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        /* =========================================================
+           3. HOME TAB (PRIVATE POINT -> RANK -> BASIC POINT -> CLAIM)
+        ========================================================= */
+        .hero-pp-card {
+            padding: 14px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-bright);
+            background: linear-gradient(135deg, #0b0b0e 0%, #050507 100%);
+        }
+
+        .point-card-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.64rem;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            margin-bottom: 4px;
+        }
+
+        .hero-pp-display {
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .hero-pp-digits {
+            font-size: 2.55rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 1px;
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+        }
+
+        .hero-pp-unit {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        /* Current Rank Panel */
+        .rank-panel {
+            padding: 13px 14px;
+            margin-bottom: 10px;
+            border-width: 1px;
+            transition: border-color 0.3s;
+        }
+
+        .rank-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rank-badge-block {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rank-emblem {
+            width: 58px;
+            height: 58px;
+            border: 2px solid currentColor;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.6rem;
+            font-weight: 700;
+            line-height: 1;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .rank-meta-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .rank-label-sm {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+        }
+
+        .rank-tier-name {
+            font-size: 0.98rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+        }
+
+        .conversion-pill {
+            text-align: right;
+            border: 1px solid var(--border-dim);
+            background: #040405;
+            padding: 5px 9px;
+        }
+
+        .conversion-lbl {
+            font-size: 0.54rem;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        .conversion-val {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .promotion-area {
+            margin-top: 11px;
+            padding-top: 9px;
+            border-top: 1px dashed var(--border-dim);
+        }
+
+        .promo-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.66rem;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .promo-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: #111115;
+            border: 1px solid var(--border-dim);
+            overflow: hidden;
+        }
+
+        .promo-bar-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.35s ease, background-color 0.3s ease;
+        }
+
+        /* Rank Theme Utility Classes */
+        .c-rank-d { color: var(--rank-d); border-color: var(--rank-d); }
+        .c-rank-c { color: var(--rank-c); border-color: var(--rank-c); }
+        .c-rank-b { color: var(--rank-b); border-color: var(--rank-b); }
+        .c-rank-a { color: var(--rank-a); border-color: var(--rank-a); }
+        .c-rank-s { color: var(--rank-s); border-color: var(--rank-s); }
+
+        /* Basic Point Card */
+        .bp-card {
+            padding: 11px 14px;
+            margin-bottom: 10px;
+        }
+
+        .bp-value-display {
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .bp-digits {
+            font-size: 1.9rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 1px;
+        }
+
+        .bp-unit {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        /* 0900 JST Private Point Claim Card */
+        .allowance-card {
+            padding: 12px 14px;
+            border: 1px solid var(--border-mid);
+            background: #08080b;
+        }
+
+        .allowance-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .allowance-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .allowance-grant-badge {
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border: 1px solid var(--border-bright);
+            background: #121216;
+        }
+
+        .allowance-status-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            margin-bottom: 9px;
+        }
+
+        .claim-execute-btn {
+            width: 100%;
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            padding: 11px;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+        }
+
+        .claim-execute-btn:disabled {
+            background: #121216;
+            color: var(--text-muted);
+            border-color: var(--border-dim);
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+           4. ACTION & REWARD CARDS
+        ========================================================= */
+        .action-card {
+            border: 1px solid var(--border-dim);
+            background: var(--bg-surface);
+            padding: 12px;
+            margin-bottom: 9px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            transition: border-color 0.15s;
+        }
+
+        .action-card:hover {
+            border-color: var(--border-mid);
+        }
+
+        .action-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .action-name {
+            font-size: 0.88rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+
+        .action-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 0.68rem;
+        }
+
+        .tag-pill {
+            padding: 2px 6px;
+            border: 1px solid var(--border-dim);
+            background: #0c0c10;
+        }
+
+        .tag-pos {
+            border-color: rgba(76, 175, 80, 0.5);
+            color: var(--rank-d);
+        }
+
+        .tag-neg {
+            border-color: rgba(239, 83, 80, 0.5);
+            color: var(--rank-a);
+        }
+
+        .tag-cost {
+            border-color: var(--border-mid);
+            color: #ffffff;
+        }
+
+        .trigger-btn {
+            background: transparent;
+            border: 1px solid var(--border-bright);
+            color: var(--text-primary);
+            padding: 9px 12px;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .trigger-btn:active {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .trigger-btn.neg-btn {
+            border-color: var(--rank-a);
+            color: var(--rank-a);
+        }
+
+        .trigger-btn.neg-btn:active {
+            background: var(--rank-a);
+            color: #000000;
+        }
+
+        .trigger-btn:disabled {
+            border-color: var(--border-dim);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* =========================================================
+           5. ADMINISTRATION TAB
+        ========================================================= */
+        .admin-panel-card {
+            border: 1px solid var(--border-dim);
+            background: var(--bg-surface);
+            padding: 12px;
+            margin-bottom: 14px;
+        }
+
+        .admin-card-hd {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #ffffff;
+            border-bottom: 1px solid var(--border-dim);
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            margin-bottom: 8px;
+        }
+
+        .field-split {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 7px;
+        }
+
+        .cyber-input {
+            width: 100%;
+            background: #000000;
+            border: 1px solid var(--border-dim);
+            color: #ffffff;
+            padding: 9px 10px;
+            font-family: 'Chakra Petch', 'Noto Sans JP', sans-serif;
+            font-size: 0.82rem;
+        }
+
+        .cyber-input:focus {
+            outline: none;
+            border-color: #ffffff;
+        }
+
+        .cyber-btn {
+            width: 100%;
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            padding: 9px;
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+        }
+
+        .cyber-btn.ghost {
+            background: transparent;
+            color: #ffffff;
+        }
+
+        .cyber-btn.danger {
+            background: transparent;
+            border-color: var(--rank-a);
+            color: var(--rank-a);
+        }
+
+        .admin-item-list {
+            margin-top: 10px;
+            border-top: 1px dashed var(--border-dim);
+            padding-top: 6px;
+        }
+
+        .admin-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #141418;
+            font-size: 0.75rem;
+            gap: 8px;
+        }
+
+        .admin-row-actions {
+            display: flex;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .sm-op-btn {
+            background: #101014;
+            border: 1px solid var(--border-dim);
+            color: #ffffff;
+            padding: 3px 7px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.65rem;
+            cursor: pointer;
+        }
+
+        .sm-op-btn.del {
+            border-color: var(--rank-a);
+            color: var(--rank-a);
+        }
+
+        /* =========================================================
+           6. BOTTOM NAVIGATION BAR (5 TABS)
+        ========================================================= */
+        .bottom-nav {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            border-top: 1px solid var(--border-bright);
+            background: #040406;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 2px 8px 2px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-right: 1px solid #18181e;
+            transition: background 0.12s, color 0.12s;
+        }
+
+        .nav-item:last-child {
+            border-right: none;
+        }
+
+        .nav-item svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            margin-bottom: 3px;
+        }
+
+        .nav-item span {
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+        }
+
+        .nav-item.active {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        /* =========================================================
+           7. TOAST NOTIFICATION & EDIT MODAL
+        ========================================================= */
+        #hud-toast {
+            position: absolute;
+            top: 52px;
+            left: 14px;
+            right: 14px;
+            background: #050507;
+            border: 1px solid #ffffff;
+            color: #ffffff;
+            padding: 10px 12px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-align: center;
+            z-index: 600;
+            display: none;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.9);
+        }
+
+        #modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            z-index: 550;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 18px;
+        }
+
+        .modal-dialog {
+            width: 100%;
+            max-width: 340px;
+            background: #08080b;
+            border: 1px solid #ffffff;
+            padding: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal-shell">
+    <div id="hud-toast" class="mono"></div>
+
+    <!-- Credential Approved Transition Overlay -->
+    <div id="credential-overlay">
+        <div class="credential-box">
+            <div class="credential-status" id="overlay-status-text">CREDENTIAL APPROVED</div>
+            <div class="loader-bar-outer">
+                <div class="loader-bar-inner" id="login-progress-bar"></div>
+            </div>
+            <div class="loading-subtext mono" id="overlay-sub-text">LOADING DATA...</div>
+        </div>
+    </div>
+
+    <!-- Edit Entry Modal -->
+    <div id="modal-backdrop">
+        <div class="modal-dialog hud-frame">
+            <div style="font-size:0.78rem; font-weight:700; letter-spacing:2px; border-bottom:1px solid var(--border-dim); padding-bottom:6px; margin-bottom:12px;">
+                MODIFY PROTOCOL ENTRY
+            </div>
+            <div class="field-group">
+                <input type="text" id="modal-title-input" class="cyber-input" placeholder="ENTRY TITLE">
+                <input type="number" id="modal-pts-input" class="cyber-input mono" placeholder="POINTS VALUE">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+                <button class="cyber-btn ghost" onclick="closeModal()">CANCEL</button>
+                <button class="cyber-btn" onclick="confirmModalEdit()">UPDATE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Purge Confirmation Modal -->
+    <div id="reset-modal-backdrop" style="position:absolute; inset:0; background:rgba(0,0,0,0.9); z-index:560; display:none; justify-content:center; align-items:center; padding:18px;">
+        <div class="modal-dialog hud-frame" style="border-color:var(--rank-a);">
+            <div style="font-size:0.78rem; font-weight:700; letter-spacing:2px; color:var(--rank-a); border-bottom:1px solid var(--rank-a); padding-bottom:6px; margin-bottom:12px;">
+                WARNING: SYSTEM PURGE INITIATED
+            </div>
+            <div style="font-size:0.76rem; color:var(--text-primary); line-height:1.5; margin-bottom:14px;">
+                ALL DATA, POINT RECORDS, AND SECURITY CREDENTIALS WILL BE PERMANENTLY ERASED. PROCEED WITH INITIALIZATION?
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button class="cyber-btn ghost" onclick="closeResetModal()">ABORT</button>
+                <button class="cyber-btn danger" style="background:var(--rank-a); color:#000000;" onclick="executeSystemPurge()">CONFIRM PURGE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         SCREEN 1: AUTHENTICATION & FIRST-BOOT 12-DIGIT SETUP
+    ========================================================= -->
+    <div id="auth-screen" class="screen active">
+        <div>
+            <div class="auth-top-meta mono">
+                <span>PISRA // 95695-A01F-T006033</span>
+                <span>SYSTEM PROTOCOL v1.0</span>
+            </div>
+            <div class="auth-title-block">
+                <div class="auth-agency-mini">Psychics Information Security Research Agency</div>
+                <div class="auth-project">WHITE ROOM PROJECT #3</div>
+                <div class="auth-program">QUOLIS PROGRAM</div>
+                <div class="auth-clearance-tag" id="auth-clearance-badge">LEVEL 4 SECURITY CLEARANCE</div>
+            </div>
+        </div>
+
+        <div class="passcode-box">
+            <div class="passcode-prompt" id="auth-main-prompt">INPUT 12-DIGIT ACCESS PASSCODE</div>
+            <div class="passcode-subprompt mono" id="auth-sub-prompt">AUTHORIZED PERSONNEL ONLY</div>
+            <div class="slots-container mono" id="passcode-slots"></div>
+            <div class="digit-counter mono" id="digit-counter-label">0 / 12 DIGITS</div>
+        </div>
+
+        <div class="keypad-area">
+            <div class="keypad-grid">
+                <button class="pad-btn" onclick="inputDigit('1')">1</button>
+                <button class="pad-btn" onclick="inputDigit('2')">2</button>
+                <button class="pad-btn" onclick="inputDigit('3')">3</button>
+                <button class="pad-btn" onclick="inputDigit('4')">4</button>
+                <button class="pad-btn" onclick="inputDigit('5')">5</button>
+                <button class="pad-btn" onclick="inputDigit('6')">6</button>
+                <button class="pad-btn" onclick="inputDigit('7')">7</button>
+                <button class="pad-btn" onclick="inputDigit('8')">8</button>
+                <button class="pad-btn" onclick="inputDigit('9')">9</button>
+                <button class="pad-btn fn-btn" onclick="clearInput()">CLEAR</button>
+                <button class="pad-btn" onclick="inputDigit('0')">0</button>
+                <button class="pad-btn fn-btn" onclick="backspaceInput()">DEL</button>
+            </div>
+            <button class="submit-login-btn" id="auth-submit-btn" onclick="handleAuthSubmit()">SUBMIT LOGIN</button>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         SCREEN 2: MAIN QUOLIS PROGRAM TERMINAL
+    ========================================================= -->
+    <div id="main-screen" class="screen">
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="header-brand">
+                <span class="header-title">QUOLIS PROGRAM</span>
+                <span class="header-sub mono">SYSTEM PROTOCOL v1.0</span>
+            </div>
+            <button class="logout-btn" onclick="logoutTerminal()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                </svg>
+                <span>LOGOUT</span>
+            </button>
+        </header>
+
+        <!-- User Clearance Dossier Strip -->
+        <div class="dossier-strip">
+            <div class="dossier-agency-row mono">
+                <span>Psychics Information Security Research Agency</span>
+                <span>White Room Project #3</span>
+            </div>
+            <div class="dossier-agent-row">
+                <div class="agent-identity">
+                    <div class="agent-avatar-box">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </div>
+                    <div class="agent-meta-col">
+                        <span class="agent-name-txt" id="hud-agent-name">AMAMIYA Reika</span>
+                        <span class="agent-affil-txt" id="hud-agent-affil">SITE-07 Director</span>
+                    </div>
+                </div>
+                <div class="agent-serial-col mono">
+                    <span class="agent-code-tag">ID: A01F-T006033</span>
+                    <span class="clearance-lvl-mini">CLEARANCE LV.4 // 95695</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scrollable Content Viewport -->
+        <main class="content-viewport">
+
+            <!-- TAB 1: HOME -->
+            <section id="view-home" class="tab-view active">
+                <div class="section-bar">
+                    <span class="section-bar-title">OPERATIVE STATUS</span>
+                    <span class="section-bar-meta mono" id="jst-clock-display">JST --:--:--</span>
+                </div>
+
+                <!-- 1. PRIVATE POINT (Primary Highlighted Display) -->
+                <div class="hero-pp-card hud-frame">
+                    <div class="point-card-top mono">
+                        <span>PRIVATE POINT</span>
+                        <span>AVAILABLE RESOURCE</span>
+                    </div>
+                    <div class="hero-pp-display mono">
+                        <span class="hero-pp-digits" id="home-pp-val">0</span>
+                        <span class="hero-pp-unit">PPt</span>
+                    </div>
+                </div>
+
+                <!-- 2. CURRENT RANK (D, C, B, A, S + Promotion Left) -->
+                <div class="rank-panel hud-frame" id="rank-panel-frame">
+                    <div class="rank-top-row">
+                        <div class="rank-badge-block">
+                            <div class="rank-emblem c-rank-d" id="rank-emblem">D</div>
+                            <div class="rank-meta-stack">
+                                <span class="rank-label-sm mono">CURRENT RANK</span>
+                                <span class="rank-tier-name c-rank-d" id="rank-tier-label">RANK D // INITIATE</span>
+                            </div>
+                        </div>
+                        <div class="conversion-pill">
+                            <div class="conversion-lbl mono">CONVERSION RATE</div>
+                            <div class="conversion-val mono c-rank-d" id="rank-rate-val">1.0x</div>
+                        </div>
+                    </div>
+
+                    <div class="promotion-area">
+                        <div class="promo-header mono">
+                            <span style="color:var(--text-secondary);">RANK PROMOTION LEFT:</span>
+                            <span id="promo-left-val" style="font-weight:700;">300 BPt</span>
+                        </div>
+                        <div class="promo-bar-bg">
+                            <div class="promo-bar-fill" id="promo-bar-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. BASIC POINT -->
+                <div class="bp-card hud-frame">
+                    <div class="point-card-top mono">
+                        <span>BASIC POINT</span>
+                        <span>CUMULATIVE EVALUATION SCORE</span>
+                    </div>
+                    <div class="bp-value-display mono">
+                        <span class="bp-digits" id="home-bp-val">0</span>
+                        <span class="bp-unit">BPt</span>
+                    </div>
+                </div>
+
+                <!-- 4. 0900 JST PRIVATE POINT CLAIM -->
+                <div class="allowance-card hud-frame">
+                    <div class="allowance-top">
+                        <div class="allowance-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>0900 JST PRIVATE POINT CLAIM</span>
+                        </div>
+                        <span class="allowance-grant-badge mono" id="allowance-grant-val">+100 PPt</span>
+                    </div>
+                    <div class="allowance-status-line mono">
+                        <span id="allowance-status-text">STATUS: AVAILABLE</span>
+                        <span id="allowance-countdown">RESET IN --:--:--</span>
+                    </div>
+                    <button class="claim-execute-btn" id="claim-allowance-btn" onclick="claimDailyAllowance()">
+                        EXECUTE ALLOWANCE CLAIM
+                    </button>
+                </div>
+            </section>
+
+            <!-- TAB 2: POSITIVE ACTIONS -->
+            <section id="view-positive" class="tab-view">
+                <div class="section-bar">
+                    <span class="section-bar-title">POSITIVE ACTIONS</span>
+                    <span class="section-bar-meta mono" id="pos-multiplier-info">RATE: 1.0x</span>
+                </div>
+                <div id="positive-list-container"></div>
+            </section>
+
+            <!-- TAB 3: NEGATIVE ACTIONS -->
+            <section id="view-negative" class="tab-view">
+                <div class="section-bar">
+                    <span class="section-bar-title">NEGATIVE ACTIONS</span>
+                    <span class="section-bar-meta mono" style="color:var(--rank-a);">DEDUCTION PROTOCOL</span>
+                </div>
+                <div id="negative-list-container"></div>
+            </section>
+
+            <!-- TAB 4: REWARDS SELECTION -->
+            <section id="view-reward" class="tab-view">
+                <div class="section-bar">
+                    <span class="section-bar-title">REWARDS SELECTION</span>
+                    <span class="section-bar-meta mono" id="reward-balance-info">BALANCE: 0 PPt</span>
+                </div>
+                <div id="reward-list-container"></div>
+            </section>
+
+            <!-- TAB 5: ADMINISTRATION -->
+            <section id="view-admin" class="tab-view">
+                <div class="section-bar">
+                    <span class="section-bar-title">ADMINISTRATION</span>
+                    <span class="section-bar-meta mono">LEVEL 4 OVERRIDE</span>
+                </div>
+
+                <!-- Change 12-Digit Access Code -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd">SECURITY ACCESS CODE (12-DIGIT FIXED)</div>
+                    <div class="field-group">
+                        <input type="password" inputmode="numeric" maxlength="12" id="admin-pin-input" class="cyber-input mono" placeholder="ENTER NEW 12-DIGIT PASSCODE">
+                    </div>
+                    <button class="cyber-btn" onclick="updateSecurityCode()">UPDATE 12-DIGIT PASSCODE</button>
+                </div>
+
+                <!-- Agent Profile Settings -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd">OPERATIVE DOSSIER CONFIGURATION</div>
+                    <div class="field-group">
+                        <input type="text" id="admin-name-input" class="cyber-input" placeholder="Name (e.g. AMAMIYA Reika)">
+                        <input type="text" id="admin-affil-input" class="cyber-input" placeholder="Affili (e.g. SITE-07 Director)">
+                        <input type="text" id="admin-id-input" class="cyber-input mono" placeholder="Agent ID (e.g. A01F-T006033)">
+                    </div>
+                    <button class="cyber-btn ghost" onclick="saveAgentProfile()">SAVE DOSSIER</button>
+                </div>
+
+                <!-- Manage Positive Actions -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd">POSITIVE ACTIONS REGISTRY</div>
+                    <div class="field-group field-split">
+                        <input type="text" id="new-pos-name" class="cyber-input" placeholder="ACTION TITLE">
+                        <input type="number" id="new-pos-pts" class="cyber-input mono" placeholder="BPt (+)">
+                    </div>
+                    <button class="cyber-btn" onclick="createProtocolItem('positive')">+ REGISTER POSITIVE ACTION</button>
+                    <div class="admin-item-list" id="admin-positive-list"></div>
+                </div>
+
+                <!-- Manage Negative Actions -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd">NEGATIVE ACTIONS REGISTRY</div>
+                    <div class="field-group field-split">
+                        <input type="text" id="new-neg-name" class="cyber-input" placeholder="PENALTY TITLE">
+                        <input type="number" id="new-neg-pts" class="cyber-input mono" placeholder="BPt (-)">
+                    </div>
+                    <button class="cyber-btn" onclick="createProtocolItem('negative')">+ REGISTER NEGATIVE ACTION</button>
+                    <div class="admin-item-list" id="admin-negative-list"></div>
+                </div>
+
+                <!-- Manage Rewards -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd">REWARDS ALLOCATION REGISTRY</div>
+                    <div class="field-group field-split">
+                        <input type="text" id="new-rew-name" class="cyber-input" placeholder="REWARD TITLE">
+                        <input type="number" id="new-rew-pts" class="cyber-input mono" placeholder="COST PPt">
+                    </div>
+                    <button class="cyber-btn" onclick="createProtocolItem('reward')">+ REGISTER REWARD</button>
+                    <div class="admin-item-list" id="admin-reward-list"></div>
+                </div>
+
+                <!-- System Reset -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd" style="color:var(--rank-a);">SYSTEM INITIALIZATION</div>
+                    <button class="cyber-btn danger" id="factory-reset-btn" onclick="openResetModal()">RESET ALL SYSTEM DATA</button>
+                </div>
+
+                <!-- Cloud Sync & Manual Node Backup -->
+                <div class="admin-panel-card hud-frame">
+                    <div class="admin-card-hd" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>CLOUD SYNCHRONIZATION & NODE BACKUP</span>
+                        <span id="sync-status-badge" class="mono" style="font-size:0.62rem; color:var(--rank-d);">SYNC: INITIALIZING</span>
+                    </div>
+                    <div style="font-size:0.64rem; color:var(--text-secondary); margin-bottom:8px; line-height:1.4;">
+                        SAME 12-DIGIT PASSCODE AUTO-LINKS ACROSS TERMINALS. USE BACKUP KEY FOR OFFLINE TRANSFER.
+                    </div>
+                    <div class="field-group">
+                        <input type="text" id="backup-code-io" class="cyber-input mono" placeholder="ENCRYPTED NODE DATA STRING">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                        <button class="cyber-btn ghost" onclick="exportNodeBackup()">EXPORT DATA KEY</button>
+                        <button class="cyber-btn ghost" onclick="importNodeBackup()">IMPORT DATA KEY</button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation Bar (5 Tabs with Icons) -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" data-target="home" onclick="switchTab('home')">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"></path>
+                </svg>
+                <span>HOME</span>
+            </div>
+            <div class="nav-item" data-target="positive" onclick="switchTab('positive')">
+                <svg viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>POSITIVE</span>
+            </div>
+            <div class="nav-item" data-target="negative" onclick="switchTab('negative')">
+                <svg viewBox="0 0 24 24">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>NEGATIVE</span>
+            </div>
+            <div class="nav-item" data-target="reward" onclick="switchTab('reward')">
+                <svg viewBox="0 0 24 24">
+                    <polygon points="12 2 22 12 12 22 2 12 12 2"></polygon>
+                </svg>
+                <span>REWARD</span>
+            </div>
+            <div class="nav-item" data-target="admin" onclick="switchTab('admin')">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>ADMIN</span>
+            </div>
+        </nav>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const STORAGE_KEY = "quolis_program_terminal_v2";
+    const APP_ID = typeof __app_id !== "undefined" ? __app_id : "quolis-program-default";
+
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let activeSyncDocId = null;
+    let unsubscribeSnapshot = null;
+    let isCloudConnected = false;
+
+    function createDefaultState() {
+        return {
+            pinHash: null, // null on first launch -> triggers Initial 12-Digit Setup
+            bp: 0,
+            pp: 0,
+            lastClaimCycleId: "",
+            agentName: "AMAMIYA Reika",
+            agentAffil: "SITE-07 Director",
+            agentId: "A01F-T006033",
+            updatedAt: 0,
+            positiveActions: [
+                { id: 101, name: "早朝覚醒プロトコル遵守 (06:30前起床)", pts: 50 },
+                { id: 102, name: "身体能力維持トレーニング (30分)", pts: 100 },
+                { id: 103, name: "専門領域研究・高度学習 (1時間)", pts: 150 },
+                { id: 104, name: "環境統制・居住区画の完全整理", pts: 60 }
+            ],
+            negativeActions: [
+                { id: 201, name: "睡眠規律違反 (00:00以降就寝)", pts: 50 },
+                { id: 202, name: "無目的メディア消費 (1時間超過)", pts: 100 },
+                { id: 203, name: "指定タスク・スケジュール遅延", pts: 150 }
+            ],
+            rewards: [
+                { id: 301, name: "嗜好飲料・特別配給品の摂取許可", pts: 150 },
+                { id: 302, name: "娯楽映像コンテンツ視聴 (1作品)", pts: 300 },
+                { id: 303, name: "完全自由行動時間枠の確保 (2時間)", pts: 500 }
+            ]
+        };
+    }
+
+    let state = createDefaultState();
+
+    // Auth & Initial Setup State
+    let pinBuffer = "";
+    let setupStep = 1; // 1 = enter new 12-digit passcode, 2 = confirm 12-digit passcode
+    let firstSetupPin = "";
+
+    let editingTarget = null;
+    let toastTimeout = null;
+
+    /* =========================================================
+       FIREBASE CLOUD INITIALIZATION & REAL-TIME SYNC ENGINE
+    ========================================================= */
+    function updateSyncStatusBadge(text, colorVar) {
+        const badge = document.getElementById("sync-status-badge");
+        if (badge) {
+            badge.textContent = text;
+            badge.style.color = colorVar;
+        }
+    }
+
+    async function initCloudEngine() {
+        try {
+            if (typeof __firebase_config === "undefined" || !__firebase_config) {
+                updateSyncStatusBadge("SYNC: LOCAL STORAGE ONLY", "var(--rank-c)");
+                return;
+            }
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
+                const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                currentUser = cred.user;
+            } else {
+                const cred = await signInAnonymously(auth);
+                currentUser = cred.user;
+            }
+
+            isCloudConnected = Boolean(db && currentUser);
+            if (isCloudConnected) {
+                updateSyncStatusBadge("SYNC: CLOUD ONLINE", "var(--rank-d)");
+                if (state.pinHash) {
+                    attachCloudListener(state.pinHash);
+                }
+            } else {
+                updateSyncStatusBadge("SYNC: LOCAL CACHE", "var(--rank-c)");
+            }
+        } catch (err) {
+            console.warn("Cloud sync unavailable, operating with local persistence:", err);
+            isCloudConnected = false;
+            updateSyncStatusBadge("SYNC: OFFLINE / LOCAL", "var(--rank-c)");
+        }
+    }
+
+    function getCloudDocRef(pinHash) {
+        return doc(db, "artifacts", APP_ID, "public", "data", "quolis_nodes", pinHash);
+    }
+
+    function attachCloudListener(pinHash) {
+        if (!isCloudConnected || !db || !currentUser || !pinHash) return;
+        if (activeSyncDocId === pinHash && unsubscribeSnapshot) return;
+
+        if (unsubscribeSnapshot) {
+            unsubscribeSnapshot();
+            unsubscribeSnapshot = null;
+        }
+
+        activeSyncDocId = pinHash;
+        const ref = getCloudDocRef(pinHash);
+
+        unsubscribeSnapshot = onSnapshot(ref, (snap) => {
+            if (!snap.exists()) return;
+            const remoteData = snap.data();
+            if (!remoteData || !remoteData.pinHash) return;
+
+            // Apply remote update if newer than local state
+            if ((remoteData.updatedAt || 0) > (state.updatedAt || 0)) {
+                state = { ...createDefaultState(), ...remoteData };
+                persistLocalOnly();
+                renderDashboard();
+                updateSyncStatusBadge("SYNC: CLOUD LIVE", "var(--rank-s)");
+            }
+        }, (err) => {
+            console.error("Realtime listener error:", err);
+            updateSyncStatusBadge("SYNC: RETRYING...", "var(--rank-b)");
+        });
+    }
+
+    async function fetchCloudNodeByPinHash(pinHash) {
+        if (!isCloudConnected || !db || !currentUser || !pinHash) return null;
+        try {
+            const snap = await getDoc(getCloudDocRef(pinHash));
+            if (snap.exists()) {
+                return snap.data();
+            }
+        } catch (err) {
+            console.warn("Cloud lookup failed:", err);
+        }
+        return null;
+    }
+
+    async function pushStateToCloud() {
+        if (!isCloudConnected || !db || !currentUser || !state.pinHash) return;
+        try {
+            const payload = JSON.parse(JSON.stringify(state));
+            await setDoc(getCloudDocRef(state.pinHash), payload);
+            updateSyncStatusBadge("SYNC: CLOUD LIVE", "var(--rank-d)");
+        } catch (err) {
+            console.warn("Cloud write deferred:", err);
+            updateSyncStatusBadge("SYNC: LOCAL SAVED", "var(--rank-c)");
+        }
+    }
+
+    /* =========================================================
+       STORAGE, CRYPTO & TOAST UTILITIES
+    ========================================================= */
+    function persistLocalOnly() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (err) {
+            console.error("Failed to save local state:", err);
+        }
+    }
+
+    function loadTerminalState() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                state = { ...createDefaultState(), ...parsed };
+            }
+        } catch (err) {
+            console.error("Failed to load terminal state:", err);
+        }
+    }
+
+    function saveTerminalState() {
+        state.updatedAt = Date.now();
+        persistLocalOnly();
+        renderDashboard();
+        pushStateToCloud();
+        if (state.pinHash) {
+            attachCloudListener(state.pinHash);
+        }
+    }
+
+    async function sha256Hex(text) {
+        const msgBuffer = new TextEncoder().encode(text);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function showToast(message, isAlert = false) {
+        const toast = document.getElementById("hud-toast");
+        toast.textContent = message;
+        toast.style.borderColor = isAlert ? "var(--rank-a)" : "#ffffff";
+        toast.style.color = isAlert ? "var(--rank-a)" : "#ffffff";
+        toast.style.display = "block";
+
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.style.display = "none";
+        }, 2600);
+    }
+
+    /* =========================================================
+       12-DIGIT PASSCODE AUTHENTICATION & MULTI-TERMINAL LINKING
+    ========================================================= */
+    function configureAuthScreenMode() {
+        const badge = document.getElementById("auth-clearance-badge");
+        const mainPrompt = document.getElementById("auth-main-prompt");
+        const subPrompt = document.getElementById("auth-sub-prompt");
+        const submitBtn = document.getElementById("auth-submit-btn");
+
+        pinBuffer = "";
+        setupStep = 1;
+        firstSetupPin = "";
+
+        if (!state.pinHash) {
+            badge.textContent = "INITIAL SECURITY SETUP";
+            badge.classList.add("setup-mode");
+            mainPrompt.textContent = "ENTER 12-DIGIT PASSCODE";
+            subPrompt.textContent = "NEW REGISTRATION OR EXISTING NODE SYNC";
+            submitBtn.textContent = "PROCEED";
+        } else {
+            badge.textContent = "LEVEL 4 SECURITY CLEARANCE";
+            badge.classList.remove("setup-mode");
+            mainPrompt.textContent = "INPUT 12-DIGIT ACCESS PASSCODE";
+            subPrompt.textContent = "AUTHORIZED PERSONNEL ONLY";
+            submitBtn.textContent = "SUBMIT LOGIN";
+        }
+        renderPasscodeSlots();
+    }
+
+    function renderPasscodeSlots() {
+        const container = document.getElementById("passcode-slots");
+        let html = "";
+        for (let g = 0; g < 3; g++) {
+            if (g > 0) html += `<span class="slot-dash">-</span>`;
+            html += `<div class="slot-group">`;
+            for (let i = 0; i < 4; i++) {
+                const idx = g * 4 + i;
+                const filled = idx < pinBuffer.length;
+                const isCursor = idx === pinBuffer.length;
+                html += `<div class="code-slot ${filled ? "filled" : ""} ${isCursor ? "cursor" : ""}">${filled ? "•" : "_"}</div>`;
+            }
+            html += `</div>`;
+        }
+        container.innerHTML = html;
+        document.getElementById("digit-counter-label").textContent = `${pinBuffer.length} / 12 DIGITS`;
+    }
+
+    function inputDigit(digit) {
+        if (pinBuffer.length >= 12) return;
+        pinBuffer += digit;
+        renderPasscodeSlots();
+    }
+
+    function clearInput() {
+        pinBuffer = "";
+        renderPasscodeSlots();
+    }
+
+    function backspaceInput() {
+        pinBuffer = pinBuffer.slice(0, -1);
+        renderPasscodeSlots();
+    }
+
+    async function handleAuthSubmit() {
+        if (pinBuffer.length !== 12) {
+            showToast("ERROR: 12 DIGITS REQUIRED", true);
+            return;
+        }
+
+        const candidateHash = await sha256Hex(pinBuffer);
+
+        // First-Boot on this terminal: Check if another terminal already registered this 12-digit code in Cloud!
+        if (!state.pinHash) {
+            if (setupStep === 1) {
+                const existingCloudNode = await fetchCloudNodeByPinHash(candidateHash);
+                if (existingCloudNode && existingCloudNode.pinHash === candidateHash) {
+                    state = { ...createDefaultState(), ...existingCloudNode };
+                    persistLocalOnly();
+                    attachCloudListener(candidateHash);
+                    triggerApprovedTransition("CLOUD NODE SYNCHRONIZED");
+                    return;
+                }
+
+                firstSetupPin = pinBuffer;
+                pinBuffer = "";
+                setupStep = 2;
+                document.getElementById("auth-main-prompt").textContent = "CONFIRM 12-DIGIT ACCESS PASSCODE";
+                document.getElementById("auth-sub-prompt").textContent = "STEP 2 / 2 : RE-ENTER TO REGISTER NEW NODE";
+                document.getElementById("auth-submit-btn").textContent = "REGISTER & LOGIN";
+                renderPasscodeSlots();
+                return;
+            } else {
+                if (pinBuffer !== firstSetupPin) {
+                    showToast("MISMATCH: PASSCODES DO NOT MATCH", true);
+                    configureAuthScreenMode();
+                    return;
+                }
+                state.pinHash = candidateHash;
+                saveTerminalState();
+                triggerApprovedTransition("CREDENTIAL REGISTERED");
+                return;
+            }
+        }
+
+        // Standard Login Verification Flow (also pulls latest cloud data on login)
+        if (candidateHash === state.pinHash) {
+            const latestCloudNode = await fetchCloudNodeByPinHash(candidateHash);
+            if (latestCloudNode && (latestCloudNode.updatedAt || 0) > (state.updatedAt || 0)) {
+                state = { ...createDefaultState(), ...latestCloudNode };
+                persistLocalOnly();
+            } else {
+                pushStateToCloud();
+            }
+            attachCloudListener(candidateHash);
+            triggerApprovedTransition("CREDENTIAL APPROVED");
+        } else {
+            pinBuffer = "";
+            renderPasscodeSlots();
+            showToast("ACCESS DENIED: INVALID CREDENTIAL", true);
+        }
+    }
+
+    function triggerApprovedTransition(statusLabel) {
+        pinBuffer = "";
+        renderPasscodeSlots();
+
+        const overlay = document.getElementById("credential-overlay");
+        const bar = document.getElementById("login-progress-bar");
+        document.getElementById("overlay-status-text").textContent = statusLabel;
+        document.getElementById("overlay-sub-text").textContent = "LOADING DATA...";
+
+        bar.style.width = "0%";
+        overlay.style.display = "flex";
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                bar.style.width = "100%";
+            });
+        });
+
+        setTimeout(() => {
+            overlay.style.display = "none";
+            document.getElementById("auth-screen").classList.remove("active");
+            document.getElementById("main-screen").classList.add("active");
+            switchTab("home");
+            renderDashboard();
+        }, 780);
+    }
+
+    function logoutTerminal() {
+        document.getElementById("main-screen").classList.remove("active");
+        document.getElementById("auth-screen").classList.add("active");
+        configureAuthScreenMode();
+    }
+
+    /* =========================================================
+       RANK, JST CLOCK & ACTION PROTOCOLS
+    ========================================================= */
+    function getRankDetails(bp) {
+        if (bp >= 5000) {
+            return { code: "S", title: "RANK S // SOVEREIGN", rate: 3.0, colorClass: "c-rank-s", hex: "#26c6da", minBp: 5000, nextBp: null };
+        }
+        if (bp >= 2500) {
+            return { code: "A", title: "RANK A // EXECUTOR", rate: 2.0, colorClass: "c-rank-a", hex: "#ef5350", minBp: 2500, nextBp: 5000 };
+        }
+        if (bp >= 1000) {
+            return { code: "B", title: "RANK B // OPERATIVE", rate: 1.5, colorClass: "c-rank-b", hex: "#ffa726", minBp: 1000, nextBp: 2500 };
+        }
+        if (bp >= 300) {
+            return { code: "C", title: "RANK C // AGENT", rate: 1.2, colorClass: "c-rank-c", hex: "#ffee58", minBp: 300, nextBp: 1000 };
+        }
+        return { code: "D", title: "RANK D // INITIATE", rate: 1.0, colorClass: "c-rank-d", hex: "#4caf50", minBp: 0, nextBp: 300 };
+    }
+
+    function getJstNow() {
+        const now = new Date();
+        const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+        return new Date(utcMs + 9 * 3600000);
+    }
+
+    function getCurrentJstCycleId() {
+        const jst = getJstNow();
+        const shifted = new Date(jst.getTime() - 9 * 3600000);
+        const y = shifted.getFullYear();
+        const m = String(shifted.getMonth() + 1).padStart(2, "0");
+        const d = String(shifted.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
+
+    function updateJstClock() {
+        const jst = getJstNow();
+        const hh = String(jst.getHours()).padStart(2, "0");
+        const mm = String(jst.getMinutes()).padStart(2, "0");
+        const ss = String(jst.getSeconds()).padStart(2, "0");
+        document.getElementById("jst-clock-display").textContent = `JST ${hh}:${mm}:${ss}`;
+
+        const nextReset = new Date(jst);
+        nextReset.setHours(9, 0, 0, 0);
+        if (jst.getHours() >= 9) {
+            nextReset.setDate(nextReset.getDate() + 1);
+        }
+        const diffSec = Math.max(0, Math.floor((nextReset - jst) / 1000));
+        const rh = String(Math.floor(diffSec / 3600)).padStart(2, "0");
+        const rm = String(Math.floor((diffSec % 3600) / 60)).padStart(2, "0");
+        const rs = String(diffSec % 60).padStart(2, "0");
+        document.getElementById("allowance-countdown").textContent = `RESET IN ${rh}:${rm}:${rs}`;
+    }
+
+    function claimDailyAllowance() {
+        const cycleId = getCurrentJstCycleId();
+        if (state.lastClaimCycleId === cycleId) {
+            showToast("ALLOWANCE ALREADY DISTRIBUTED TODAY", true);
+            return;
+        }
+        const rank = getRankDetails(state.bp);
+        const grant = Math.floor(100 * rank.rate);
+        state.pp += grant;
+        state.lastClaimCycleId = cycleId;
+        saveTerminalState();
+        showToast(`0900 JST ALLOWANCE CLAIMED: +${grant} PPt`);
+    }
+
+    function executePositiveAction(id) {
+        const item = state.positiveActions.find(a => a.id === id);
+        if (!item) return;
+
+        const rank = getRankDetails(state.bp);
+        const ppGain = Math.floor(item.pts * rank.rate);
+        state.bp += item.pts;
+        state.pp += ppGain;
+        saveTerminalState();
+        showToast(`EXECUTED: +${item.pts} BPt / +${ppGain} PPt`);
+    }
+
+    function executeNegativeAction(id) {
+        const item = state.negativeActions.find(a => a.id === id);
+        if (!item) return;
+
+        state.bp = Math.max(0, state.bp - item.pts);
+        state.pp = Math.max(0, state.pp - item.pts);
+        saveTerminalState();
+        showToast(`PENALTY APPLIED: -${item.pts} BPt / -${item.pts} PPt`, true);
+    }
+
+    function executeRewardRedemption(id) {
+        const item = state.rewards.find(r => r.id === id);
+        if (!item) return;
+
+        if (state.pp < item.pts) {
+            showToast("INSUFFICIENT PRIVATE POINTS", true);
+            return;
+        }
+        state.pp -= item.pts;
+        saveTerminalState();
+        showToast(`REWARD CLAIMED: -${item.pts} PPt`);
+    }
+
+    async function updateSecurityCode() {
+        const input = document.getElementById("admin-pin-input");
+        const newPin = input.value.trim();
+        if (!/^\d{12}$/.test(newPin)) {
+            showToast("ERROR: PASSCODE MUST BE EXACTLY 12 DIGITS", true);
+            return;
+        }
+        const oldPinHash = state.pinHash;
+        const newPinHash = await sha256Hex(newPin);
+
+        if (unsubscribeSnapshot) {
+            unsubscribeSnapshot();
+            unsubscribeSnapshot = null;
+            activeSyncDocId = null;
+        }
+
+        state.pinHash = newPinHash;
+        input.value = "";
+        saveTerminalState();
+
+        if (isCloudConnected && db && currentUser && oldPinHash && oldPinHash !== newPinHash) {
+            try {
+                await deleteDoc(getCloudDocRef(oldPinHash));
+            } catch (err) {
+                console.warn("Previous node cleanup skipped:", err);
+            }
+        }
+        showToast("12-DIGIT ACCESS PASSCODE UPDATED");
+    }
+
+    function saveAgentProfile() {
+        const nameVal = document.getElementById("admin-name-input").value.trim();
+        const affilVal = document.getElementById("admin-affil-input").value.trim();
+        const idVal = document.getElementById("admin-id-input").value.trim();
+        if (nameVal) state.agentName = nameVal;
+        if (affilVal) state.agentAffil = affilVal;
+        if (idVal) state.agentId = idVal;
+        saveTerminalState();
+        showToast("OPERATIVE DOSSIER UPDATED");
+    }
+
+    function createProtocolItem(category) {
+        let nameInput, ptsInput, collection;
+        if (category === "positive") {
+            nameInput = document.getElementById("new-pos-name");
+            ptsInput = document.getElementById("new-pos-pts");
+            collection = state.positiveActions;
+        } else if (category === "negative") {
+            nameInput = document.getElementById("new-neg-name");
+            ptsInput = document.getElementById("new-neg-pts");
+            collection = state.negativeActions;
+        } else {
+            nameInput = document.getElementById("new-rew-name");
+            ptsInput = document.getElementById("new-rew-pts");
+            collection = state.rewards;
+        }
+
+        const title = nameInput.value.trim();
+        const pts = parseInt(ptsInput.value, 10);
+
+        if (!title || isNaN(pts) || pts <= 0) {
+            showToast("INVALID TITLE OR POINT VALUE", true);
+            return;
+        }
+
+        collection.push({ id: Date.now(), name: title, pts });
+        nameInput.value = "";
+        ptsInput.value = "";
+        saveTerminalState();
+        showToast("PROTOCOL ENTRY REGISTERED");
+    }
+
+    function removeProtocolItem(category, id) {
+        if (category === "positive") {
+            state.positiveActions = state.positiveActions.filter(item => item.id !== id);
+        } else if (category === "negative") {
+            state.negativeActions = state.negativeActions.filter(item => item.id !== id);
+        } else {
+            state.rewards = state.rewards.filter(item => item.id !== id);
+        }
+        saveTerminalState();
+        showToast("PROTOCOL ENTRY DELETED");
+    }
+
+    function openEditModal(category, id) {
+        const collection = category === "positive"
+            ? state.positiveActions
+            : category === "negative"
+                ? state.negativeActions
+                : state.rewards;
+
+        const target = collection.find(item => item.id === id);
+        if (!target) return;
+
+        editingTarget = { category, id };
+        document.getElementById("modal-title-input").value = target.name;
+        document.getElementById("modal-pts-input").value = target.pts;
+        document.getElementById("modal-backdrop").style.display = "flex";
+    }
+
+    function closeModal() {
+        editingTarget = null;
+        document.getElementById("modal-backdrop").style.display = "none";
+    }
+
+    function confirmModalEdit() {
+        if (!editingTarget) return;
+        const newName = document.getElementById("modal-title-input").value.trim();
+        const newPts = parseInt(document.getElementById("modal-pts-input").value, 10);
+
+        if (!newName || isNaN(newPts) || newPts <= 0) {
+            showToast("INVALID INPUT VALUES", true);
+            return;
+        }
+
+        const collection = editingTarget.category === "positive"
+            ? state.positiveActions
+            : editingTarget.category === "negative"
+                ? state.negativeActions
+                : state.rewards;
+
+        const target = collection.find(item => item.id === editingTarget.id);
+        if (target) {
+            target.name = newName;
+            target.pts = newPts;
+        }
+
+        closeModal();
+        saveTerminalState();
+        showToast("PROTOCOL ENTRY MODIFIED");
+    }
+
+    function exportNodeBackup() {
+        try {
+            const jsonStr = JSON.stringify(state);
+            const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+            const ioField = document.getElementById("backup-code-io");
+            ioField.value = encoded;
+            ioField.select();
+            document.execCommand("copy");
+            showToast("ENCRYPTED NODE KEY COPIED TO CLIPBOARD");
+        } catch (err) {
+            showToast("EXPORT FAILED", true);
+        }
+    }
+
+    function importNodeBackup() {
+        const ioField = document.getElementById("backup-code-io");
+        const rawCode = ioField.value.trim();
+        if (!rawCode) {
+            showToast("PASTE BACKUP KEY FIRST", true);
+            return;
+        }
+        try {
+            const decoded = decodeURIComponent(escape(atob(rawCode)));
+            const imported = JSON.parse(decoded);
+            if (!imported || typeof imported.bp !== "number" || typeof imported.pp !== "number") {
+                throw new Error("Invalid node schema");
+            }
+            state = { ...createDefaultState(), ...imported };
+            ioField.value = "";
+            saveTerminalState();
+            showToast("NODE DATA RESTORED & SYNCHRONIZED");
+        } catch (err) {
+            showToast("INVALID BACKUP DATA STRING", true);
+        }
+    }
+
+    function openResetModal() {
+        document.getElementById("reset-modal-backdrop").style.display = "flex";
+    }
+
+    function closeResetModal() {
+        document.getElementById("reset-modal-backdrop").style.display = "none";
+    }
+
+    async function executeSystemPurge() {
+        closeResetModal();
+        const oldHash = state.pinHash;
+
+        if (unsubscribeSnapshot) {
+            unsubscribeSnapshot();
+            unsubscribeSnapshot = null;
+            activeSyncDocId = null;
+        }
+
+        if (isCloudConnected && db && currentUser && oldHash) {
+            try {
+                await deleteDoc(getCloudDocRef(oldHash));
+            } catch (err) {
+                console.warn("Cloud purge skipped:", err);
+            }
+        }
+
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch (err) {
+            console.error("Storage purge warning:", err);
+        }
+
+        // In-memory state complete reset
+        state = createDefaultState();
+        pinBuffer = "";
+        setupStep = 1;
+        firstSetupPin = "";
+        editingTarget = null;
+
+        // Clear Admin input fields
+        document.getElementById("admin-pin-input").value = "";
+        document.getElementById("new-pos-name").value = "";
+        document.getElementById("new-pos-pts").value = "";
+        document.getElementById("new-neg-name").value = "";
+        document.getElementById("new-neg-pts").value = "";
+        document.getElementById("new-rew-name").value = "";
+        document.getElementById("new-rew-pts").value = "";
+        document.getElementById("backup-code-io").value = "";
+
+        // Switch UI directly back to Initial 12-Digit Security Setup
+        switchTab("home");
+        renderDashboard();
+        configureAuthScreenMode();
+
+        document.getElementById("main-screen").classList.remove("active");
+        document.getElementById("auth-screen").classList.add("active");
+        showToast("SYSTEM PURGED // INITIALIZE NEW 12-DIGIT PASSCODE", true);
+    }
+
+    /* =========================================================
+       NAVIGATION & UI RENDERING
+    ========================================================= */
+    function switchTab(tabKey) {
+        document.querySelectorAll(".tab-view").forEach(view => {
+            view.classList.remove("active");
+        });
+        document.getElementById(`view-${tabKey}`).classList.add("active");
+
+        document.querySelectorAll(".nav-item").forEach(nav => {
+            nav.classList.toggle("active", nav.dataset.target === tabKey);
+        });
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/[&<>"']/g, ch => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        })[ch]);
+    }
+
+    function renderDashboard() {
+        const rank = getRankDetails(state.bp);
+
+        // User Dossier & Admin Inputs
+        document.getElementById("hud-agent-name").textContent = state.agentName;
+        document.getElementById("hud-agent-affil").textContent = state.agentAffil;
+        document.querySelector(".agent-code-tag").textContent = `ID: ${state.agentId || "A01F-T006033"}`;
+        document.getElementById("admin-name-input").value = state.agentName;
+        document.getElementById("admin-affil-input").value = state.agentAffil;
+        document.getElementById("admin-id-input").value = state.agentId || "A01F-T006033";
+
+        // HOME: PRIVATE POINT (Top Hero Card)
+        document.getElementById("home-pp-val").textContent = state.pp.toLocaleString();
+
+        // HOME: CURRENT RANK Card
+        const rankFrame = document.getElementById("rank-panel-frame");
+        rankFrame.style.borderColor = rank.hex;
+
+        const emblem = document.getElementById("rank-emblem");
+        emblem.textContent = rank.code;
+        emblem.className = `rank-emblem ${rank.colorClass}`;
+
+        const tierLabel = document.getElementById("rank-tier-label");
+        tierLabel.textContent = rank.title;
+        tierLabel.className = `rank-tier-name ${rank.colorClass}`;
+
+        const rateVal = document.getElementById("rank-rate-val");
+        rateVal.textContent = `${rank.rate.toFixed(1)}x`;
+        rateVal.className = `conversion-val mono ${rank.colorClass}`;
+
+        // Promotion Progress
+        const promoLeftEl = document.getElementById("promo-left-val");
+        const promoFillEl = document.getElementById("promo-bar-fill");
+        promoFillEl.style.backgroundColor = rank.hex;
+
+        if (rank.nextBp === null) {
+            promoLeftEl.textContent = "MAX CLEARANCE REACHED";
+            promoFillEl.style.width = "100%";
+        } else {
+            const needed = rank.nextBp - state.bp;
+            const span = rank.nextBp - rank.minBp;
+            const pct = Math.min(100, Math.max(0, ((state.bp - rank.minBp) / span) * 100));
+            promoLeftEl.textContent = `${needed.toLocaleString()} BPt`;
+            promoFillEl.style.width = `${pct}%`;
+        }
+
+        // HOME: BASIC POINT
+        document.getElementById("home-bp-val").textContent = state.bp.toLocaleString();
+
+        // HOME: 0900 JST PRIVATE POINT CLAIM
+        const allowanceGrant = Math.floor(100 * rank.rate);
+        document.getElementById("allowance-grant-val").textContent = `+${allowanceGrant} PPt`;
+
+        const isClaimed = state.lastClaimCycleId === getCurrentJstCycleId();
+        const claimBtn = document.getElementById("claim-allowance-btn");
+        const statusText = document.getElementById("allowance-status-text");
+
+        claimBtn.disabled = isClaimed;
+        if (isClaimed) {
+            claimBtn.textContent = "ALLOWANCE CLAIMED TODAY";
+            statusText.textContent = "STATUS: DISTRIBUTED";
+            statusText.style.color = "var(--text-muted)";
+        } else {
+            claimBtn.textContent = "EXECUTE ALLOWANCE CLAIM";
+            statusText.textContent = "STATUS: READY FOR CLAIM";
+            statusText.style.color = rank.hex;
+        }
+
+        // POSITIVE ACTIONS LIST
+        document.getElementById("pos-multiplier-info").textContent = `RATE: ${rank.rate.toFixed(1)}x`;
+        document.getElementById("positive-list-container").innerHTML = state.positiveActions.map(item => {
+            const ppGain = Math.floor(item.pts * rank.rate);
+            return `
+                <div class="action-card">
+                    <div class="action-info">
+                        <div class="action-name">${escapeHtml(item.name)}</div>
+                        <div class="action-tags mono">
+                            <span class="tag-pill">+${item.pts} BPt</span>
+                            <span class="tag-pill tag-pos">+${ppGain} PPt</span>
+                        </div>
+                    </div>
+                    <button class="trigger-btn" onclick="executePositiveAction(${item.id})">EXECUTE</button>
+                </div>
+            `;
+        }).join("");
+
+        // NEGATIVE ACTIONS LIST
+        document.getElementById("negative-list-container").innerHTML = state.negativeActions.map(item => {
+            return `
+                <div class="action-card">
+                    <div class="action-info">
+                        <div class="action-name">${escapeHtml(item.name)}</div>
+                        <div class="action-tags mono">
+                            <span class="tag-pill">-${item.pts} BPt</span>
+                            <span class="tag-pill tag-neg">-${item.pts} PPt</span>
+                        </div>
+                    </div>
+                    <button class="trigger-btn neg-btn" onclick="executeNegativeAction(${item.id})">APPLY</button>
+                </div>
+            `;
+        }).join("");
+
+        // REWARDS SELECTION LIST
+        document.getElementById("reward-balance-info").textContent = `BALANCE: ${state.pp.toLocaleString()} PPt`;
+        document.getElementById("reward-list-container").innerHTML = state.rewards.map(item => {
+            const canAfford = state.pp >= item.pts;
+            return `
+                <div class="action-card" style="opacity:${canAfford ? "1" : "0.55"};">
+                    <div class="action-info">
+                        <div class="action-name">${escapeHtml(item.name)}</div>
+                        <div class="action-tags mono">
+                            <span class="tag-pill tag-cost">${item.pts.toLocaleString()} PPt</span>
+                        </div>
+                    </div>
+                    <button class="trigger-btn" ${canAfford ? "" : "disabled"} onclick="executeRewardRedemption(${item.id})">CLAIM</button>
+                </div>
+            `;
+        }).join("");
+
+        // ADMIN REGISTRY LISTS
+        renderAdminRegistry("positive", state.positiveActions, "admin-positive-list", "BPt");
+        renderAdminRegistry("negative", state.negativeActions, "admin-negative-list", "BPt");
+        renderAdminRegistry("reward", state.rewards, "admin-reward-list", "PPt");
+    }
+
+    function renderAdminRegistry(category, list, targetId, unit) {
+        const el = document.getElementById(targetId);
+        if (!list.length) {
+            el.innerHTML = `<div style="font-size:0.68rem; color:var(--text-muted); padding:4px 0;">NO REGISTERED ENTRIES</div>`;
+            return;
+        }
+        el.innerHTML = list.map(item => `
+            <div class="admin-item-row">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    ${escapeHtml(item.name)} <span class="mono" style="color:var(--text-secondary);">[${item.pts} ${unit}]</span>
+                </span>
+                <div class="admin-row-actions">
+                    <button class="sm-op-btn" onclick="openEditModal('${category}', ${item.id})">EDIT</button>
+                    <button class="sm-op-btn del" onclick="removeProtocolItem('${category}', ${item.id})">DEL</button>
+                </div>
+            </div>
+        `).join("");
+    }
+
+    // Expose functions to global window scope for inline HTML event handlers
+    Object.assign(window, {
+        inputDigit,
+        clearInput,
+        backspaceInput,
+        handleAuthSubmit,
+        logoutTerminal,
+        switchTab,
+        claimDailyAllowance,
+        executePositiveAction,
+        executeNegativeAction,
+        executeRewardRedemption,
+        updateSecurityCode,
+        saveAgentProfile,
+        createProtocolItem,
+        removeProtocolItem,
+        openEditModal,
+        closeModal,
+        confirmModalEdit,
+        exportNodeBackup,
+        importNodeBackup,
+        openResetModal,
+        closeResetModal,
+        executeSystemPurge
+    });
+
+    // Boot Terminal
+    window.addEventListener("DOMContentLoaded", async () => {
+        loadTerminalState();
+        configureAuthScreenMode();
+        renderDashboard();
+        updateJstClock();
+        setInterval(updateJstClock, 1000);
+        await initCloudEngine();
+    });
+</script>
+</body>
+</html>
