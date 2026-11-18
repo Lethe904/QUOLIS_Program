@@ -1809,19 +1809,19 @@
        RANK, JST CLOCK & ACTION PROTOCOLS
     ========================================================= */
     function getRankDetails(bp) {
-        if (bp >= 100000) {
-            return { code: "S", title: "RANK S // SOVEREIGN", rate: 3.0, colorClass: "c-rank-s", hex: "#26c6da", minBp: 100000, nextBp: null };
-        }
-        if (bp >= 60000) {
-            return { code: "A", title: "RANK A // EXECUTOR", rate: 2.5, colorClass: "c-rank-a", hex: "#ef5350", minBp: 60000, nextBp: 100000 };
-        }
         if (bp >= 30000) {
-            return { code: "B", title: "RANK B // OPERATIVE", rate: 2.2, colorClass: "c-rank-b", hex: "#ffa726", minBp: 30000, nextBp: 60000 };
+            return { code: "S", title: "RANK S // SOVEREIGN", rate: 3.0, colorClass: "c-rank-s", hex: "#26c6da", minBp: 30000, nextBp: null };
         }
         if (bp >= 10000) {
-            return { code: "C", title: "RANK C // AGENT", rate: 2.0, colorClass: "c-rank-c", hex: "#ffee58", minBp: 10000, nextBp: 30000 };
+            return { code: "A", title: "RANK A // EXECUTOR", rate: 2.5, colorClass: "c-rank-a", hex: "#ef5350", minBp: 10000, nextBp: 30000 };
         }
-        return { code: "D", title: "RANK D // INITIATE", rate: 1.5, colorClass: "c-rank-d", hex: "#4caf50", minBp: 0, nextBp: 10000 };
+        if (bp >= 5000) {
+            return { code: "B", title: "RANK B // OPERATIVE", rate: 2.2, colorClass: "c-rank-b", hex: "#ffa726", minBp: 5000, nextBp: 10000 };
+        }
+        if (bp >= 2000) {
+            return { code: "C", title: "RANK C // AGENT", rate: 2.0, colorClass: "c-rank-c", hex: "#ffee58", minBp: 2000, nextBp: 5000 };
+        }
+        return { code: "D", title: "RANK D // INITIATE", rate: 1.5, colorClass: "c-rank-d", hex: "#4caf50", minBp: 0, nextBp: 2000 };
     }
 
     function getJstNow() {
